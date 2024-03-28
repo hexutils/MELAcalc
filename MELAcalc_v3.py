@@ -1,0 +1,323 @@
+import os
+import copy
+from pathlib import Path
+import argparse
+import warnings
+import sys, json
+import MELAweights_v3 as MW
+
+sys.path.append('../')
+import generic_helpers as help
+import Mela
+
+def check_enum(entry, enum):
+    found = False
+    i = 0
+    possible_value = tuple(enum.__dict__['__entries'].keys())
+    while (not found) and (i < len(possible_value)):
+        if entry == possible_value[i].lower():
+            found = True
+            entry = possible_value[i]
+        i += 1
+    if not found:
+        possible_value = tuple(map(str.lower, possible_value))
+        errortext = "Unknown matrix element given!"
+        errortext += "\nThe following are valid matrix elements"
+        errortext += "\n" + "\n".join(possible_value)
+        errortext = help.print_msg_box(errortext, title="ERROR")
+        raise ValueError("\n" + errortext)
+    return entry
+
+
+def json_to_dict(json_file):
+    REQUIRED_ENTRIES = ['process', 'matrixelement', 'production', 'prod', 'dec', 'isgen', 'couplings', 'computeprop']
+    REQUIRED_BRANCH_ENTRIES = {
+        True:[ #isgen=True
+            "daughter_id",
+            "daughter_pt",
+            "daughter_eta",
+            "daughter_phi",
+            "daughter_mass",
+            "associated_id",
+            "associated_pt",
+            "associated_eta",
+            "associated_phi",
+            "associated_mass",
+            "mother_id",
+            "mother_pz",
+            "mother_e",
+        ],
+        False:[ #isgen=False
+            "daughter_id",
+            "daughter_pt",
+            "daughter_eta",
+            "daughter_phi",
+            "associated_pt",
+            "associated_eta",
+            "associated_phi",
+            "associated_mass",
+        ]
+    }
+    with open(json_file) as json_data:
+        data = json.load(json_data)
+
+        setup_inputs = [
+            {
+                'process':None,
+                'matrixelement':None,
+                'production':None,
+                'prod':None,
+                'dec':None,
+                'isgen':None,
+                'couplings':None,
+                'computeprop':None,
+                "branches":None,
+                "dividep":None,
+                "propscheme":Mela.ResonancePropagatorScheme.FixedWidth,
+                "particles":None,
+                "cluster":None,
+                "decaymode":Mela.CandidateDecayMode.CandidateDecay_ZZ,
+                "separatewwzz":False,
+                "useconstant":False
+            } for _ in range(len(data))] #MELA logistics, couplings, options, particles
+
+        for n, prob_name in enumerate(data.keys()):
+            current_dict = setup_inputs[n]
+            current_dict["name"] = prob_name.lower()
+
+            for input_val in data[prob_name]:
+                new_input_val = input_val.lower()
+
+                if new_input_val not in setup_inputs[n].keys():
+                    errortext = f"{new_input_val} is not a valid setting!"
+                    errortext = help.print_msg_box(errortext, title="ERROR")
+                    raise ValueError("\n" + errortext)
+
+                settings_dict_entry = data[prob_name][input_val]
+                if isinstance(settings_dict_entry, str):
+                    settings_dict_entry = settings_dict_entry.lower()
+
+                if new_input_val == 'couplings':
+                    if current_dict["couplings"] is not None:
+                        errortext = "EFT couplings set or repeat entry!"
+                        errortext += "\nYou can set either Warsaw or Higgs basis couplings!"
+                        errortext += "\nNOT BOTH"
+                        errortext = help.print_msg_box(errortext, title="ERROR")
+                        raise ValueError("\n" + errortext)
+
+                    for coupling in settings_dict_entry:
+                        if len(settings_dict_entry[coupling]) != 2:
+                            errortext = "Length of input for " + coupling + f" is {len(settings_dict_entry[coupling])}!"
+                            errortext += "\nInput for couplings should be <name>:[<real>, <imaginary>]"
+                            errortext += "\ni.e. ghz1:[1,0]"
+                            errortext = help.print_msg_box(errortext, title="ERROR")
+                            raise ValueError("\n" + errortext)
+                        del coupling
+
+                if new_input_val == 'eftcoupling':
+                    if current_dict["couplings"] is not None:
+                        errortext = "EFT couplings set or repeat entry!"
+                        errortext += "\nYou can set either Warsaw or Higgs basis couplings!"
+                        errortext += "\nNOT BOTH"
+                        errortext = help.print_msg_box(errortext, title="ERROR")
+                        raise ValueError("\n" + errortext)
+
+                    print("WORK IN PROGRESS - WILL CALL JHUGEN LEXICON")
+
+                elif new_input_val == "particles":
+                    for particle in settings_dict_entry:
+                        if len(settings_dict_entry[particle]) != 2:
+                            errortext = f"Length of input for particle with id {particle} is {len(settings_dict_entry[particle])}!"
+                            errortext += "\nInput for particles should be as <id>:[<mass>, <width>]"
+                            errortext += "\nSet to '-1' if you want to keep the default for either"
+                            errortext += "\ni.e. 25:[100, -1]"
+                            errortext = help.print_msg_box(errortext, title="ERROR")
+                            raise ValueError("\n" + errortext)
+                        del particle
+
+                elif new_input_val == 'matrixelement':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.MatrixElement)
+
+                elif new_input_val == 'process':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.Process)
+
+                elif new_input_val == 'production':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.Production)
+
+                elif new_input_val == 'propscheme':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.ResonancePropagatorScheme)
+
+                elif new_input_val == 'decaymode':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.CandidateDecayMode)
+
+                current_dict[new_input_val] = settings_dict_entry
+
+            missing_entries = []
+            for entry in REQUIRED_ENTRIES:
+                if entry not in current_dict.keys():
+                    missing_entries.append(entry)
+
+            if len(missing_entries) > 0:
+                errortext = f"For prob name {prob_name}"
+                errortext += "\nThe following json entries are missing:"
+                errortext += "\n" + "\n".join(missing_entries)
+                errortext = help.print_msg_box(errortext, title="ERROR")
+                raise ValueError("\n" + errortext)
+            del missing_entries
+
+            if current_dict['branches'] is None:
+                if current_dict['isgen']:
+                    current_dict['branches'] = {
+                        "daughter_id" : "LHEDaughterId",
+                        "daughter_pt" : "LHEDaughterPt",
+                        "daughter_eta" : "LHEDaughterEta",
+                        "daughter_phi" : "LHEDaughterPhi",
+                        "daughter_mass" : "LHEDaughterMass",
+                        "associated_id" : "LHEAssociatedParticleId",
+                        "associated_pt" : "LHEAssociatedParticlePt",
+                        "associated_eta" : "LHEAssociatedParticleEta",
+                        "associated_phi" : "LHEAssociatedParticlePhi",
+                        "associated_mass" : "LHEAssociatedParticleMass",
+                        "mother_id" : "LHEMotherId",
+                        "mother_pz" : "LHEMotherPz",
+                        "mother_e" : "LHEMotherE"
+                    }
+                else:
+                    current_dict['branches'] = {
+                        "daughter_id" : "LepLepId", 
+                        "daughter_pt" : "LepPt", 
+                        "daughter_eta" : "LepEta", 
+                        "daughter_phi" : "LepPhi",
+                        "associated_pt" : "JetPt", 
+                        "associated_eta" : "JetEta",
+                        "associated_phi" :  "JetPhi",
+                        "associated_mass" : "JetMass"
+                    }
+            else:
+                missing_entries = []
+                for required_branch in REQUIRED_BRANCH_ENTRIES[current_dict["isgen"]]:
+                    if required_branch not in current_dict['branches'].keys():
+                        missing_entries.append(required_branch)
+
+                if len(missing_entries) > 0:
+                    errortext = f"For prob name {current_dict['name']} with alternative branches"
+                    errortext += "\nThe following branch entries are missing:"
+                    errortext += "\n" + "\n".join(missing_entries)
+                    errortext = help.print_msg_box(errortext, title="ERROR")
+                    raise ValueError("\n" + errortext)
+
+        for i, config_dict in enumerate(setup_inputs):
+            if config_dict['dividep'] is None:
+                continue
+
+            found = False
+            j = 0
+            while (not found) and (j < len(setup_inputs)):
+                if i != j:
+                    possible_division = setup_inputs[j]
+                    if possible_division["name"] == config_dict["dividep"]:
+                        found = True
+                        if j > i: #make sure that the one being divided is after the denomenator
+                            setup_inputs[j], setup_inputs[i] = setup_inputs[i], setup_inputs[j]
+                j += 1
+
+            if not found:
+                errortext = f"Denomenator for {config_dict['name']}, {config_dict['dividep']}, does not exist!"
+                errortext = help.print_msg_box(errortext, title="ERROR")
+                raise ValueError("\n" + errortext)
+
+        return setup_inputs
+
+
+
+def main(raw_args=None):
+    parser = argparse.ArgumentParser()
+    input_possibilities = parser.add_mutually_exclusive_group(required=True)
+    input_possibilities.add_argument('-i', '--ifile', type=str, nargs='+', help="individual files you want weights applied to")
+    input_possibilities.add_argument('-id', '--idirectory', type=str, help="An entire folder you want weights applied to")
+
+    parser.add_argument('-o', '--outdr', type=str, required=True, help="The output folder")
+    parser.add_argument('-fp', '--prefix', type=str, default="", help="Optional prefix to the output file name")
+    parser.add_argument('-nt', '--newTree', type=str, default="", help="Write down a new tree name if you want to dump the results to a new tree")
+    parser.add_argument('-t', '--tBranch', type=str, default="eventTree", help="The name of the TBranch you are using")
+
+    parser.add_argument('-j', '--jsonFile', type=str, help="The JSON file containing your branch names", required=True)
+
+    parser.add_argument('-l', '--lhe2root', action="store_true", help="Enable this if you want to use lhe2root/GEN level naming from LHE2ROOT")
+    parser.add_argument('-ow', '--overwrite', action="store_true", help="Enable if you want to overwrite files in the output folder")
+    parser.add_argument('-v', '--verbose', choices=[0,1,2,3,4,5], type=int, default=0)
+    parser.add_argument('-vl', '--verbose_local', choices=[0,1,2,3], type=int, default=0)
+    parser.add_argument('-n', '--number', type=int, default=-1)
+    args = parser.parse_args(raw_args)
+
+    template_input = parser.format_help()
+
+    inputfiles = args.ifile
+    input_directory = args.idirectory
+
+    if input_directory: #if you put in a directory instead of a set of files - this will recurse over that everything in that file
+        # looking for ROOT files
+        inputfiles = help.recurse_through_folder(input_directory, ".root")
+
+    output_file_prefix = args.prefix
+    outputdir = args.outdr
+    newTree = args.newTree
+
+    json = args.jsonFile
+    inputFile = json
+
+    tbranch = args.tBranch.strip() #nasty extra spaces make us sad!
+    overwrite = args.overwrite
+    verbosity = Mela.VerbosityLevel(args.verbose) #call enum from number
+    local_verbosity = args.verbose_local
+    n_events = args.number
+
+    if not os.environ.get("LD_LIBRARY_PATH"):
+        errortext = "\nPlease setup MELA first using the following command:"
+        errortext += "\neval $(./setup.sh env)\n"
+        errortext = help.print_msg_box(errortext, title="ERROR")
+        raise os.error("\n"+errortext)
+
+    if not outputdir.endswith("/"):
+        outputdir = outputdir+"/"
+
+    if not os.path.exists(inputFile):
+        errortext = f"File '{inputFile}' cannot be located. Please try again with valid input.\n"
+        errortext = help.print_msg_box(errortext, title="ERROR")
+        raise FileNotFoundError("\n" + errortext)
+
+    branchlist = json_to_dict(json)
+
+    for inputfile in zip(inputfiles):
+        if not os.path.exists(inputfile):
+            errortext = f"ROOT file '{inputfile}' cannot be located. Please try again with valid input.\n"
+            errortext = help.print_msg_box(errortext, title="ERROR")
+            raise FileExistsError("\n" + errortext)
+
+        outputfile = outputdir + output_file_prefix + inputFile.split('/')[-1]
+        if os.path.exists(outputfile):
+            if overwrite:
+                warningtext =  "Overwriting "+outputfile+"\n"
+                warnings.warn("\n" + help.print_msg_box(warningtext, title="WARNING"))
+                os.remove(outputfile)
+            else:
+                errortext = f"'{outputfile}' or parts of it already exist!\n"
+                errortext = help.print_msg_box(errortext, title="ERROR")
+                raise FileExistsError("\n" + errortext)
+        else:
+            if not os.path.exists(outputdir):
+                Path(outputdir).mkdir(True, True)
+            print("Pre-existing output PTree not found")
+
+        User_text = f"Input PTree is '{inputfile}'"
+        User_text += f"\nInput branch is '{tbranch}'"
+        User_text += f"\nOutput file is '{outputfile}'"
+        help.print_msg_box(User_text, title="Reading user input")
+        del User_text
+
+        calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events)
+        MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
+
+if __name__ == "__main__":
+    main()
+
