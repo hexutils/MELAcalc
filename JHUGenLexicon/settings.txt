@@ -1,0 +1,106 @@
+
+The options implemented in JHUGenLexicon (format: specifier=value):
+
+- input_basis: Input coupling conventions
+
+- output_basis: Output coupling conventions
+
+- useMCFMAtInput: Use MCFM conventions in the input JHUGen couplings. Assumes the ghv* couplings (ghv1=2 in SM) are divided by 2.
+
+- useMCFMAtOutput: Use MCFM conventions in the output JHUGen couplings. Divides the ghv* couplings by 2.
+
+- distinguish_HWWcouplings: Distinguish HZZ and HWW couplings in the JHUGen amplitude basis if it is the input. Default is false.
+
+- include_triple_quartic_gauge: Return triple gauge couplings. Default is false.
+
+- custodial_symmetry: set delta_m = 0 (Note: This also fixes delta_v in the Warsaw Basis)
+
+- HW_couplings_only: Only return HWW couplings. Only used for JHUGen_Amplitude Basis. Default is false.
+
+- HZ_couplings_only: Only return HZZ, HZgamma and Hgammagamma couplings. Only used for JHUGen_Amplitude Basis. Default is false.
+
+- NOTE: HW_couplings_only and HZ_couplings_only does not affect the output of include_triple_quartic_gauge.
+
+- switch_convention: Switch the relative sign on the Zgamma couplings.
+
+- The format to set any parameter is [specifier]=[value].
+
+- The format to set any coupling [specifier] to the complex number ([vRe], [vIm]) is [specifier]=[vRe],[vIm].
+
+- Allowed couplings for the JHUGen amplitude formalism:
+	ghz1 (default = 0,0)
+	ghz1_prime2 (default = 0,0)
+	ghz2 (default = 0,0)
+	ghz4 (default = 0,0)
+	ghw1 (default = 0,0)
+	ghw1_prime2 (default = 0,0)
+	ghw2 (default = 0,0)
+	ghw4 (default = 0,0)
+	ghzgs1_prime2 (default = 0,0)
+	ghzgs2 (default = 0,0)
+	ghzgs4 (default = 0,0)
+	ghgsgs2 (default = 0,0)
+	ghgsgs4 (default = 0,0)
+	ghg2 (default = 0,0)
+	ghg4 (default = 0,0)
+- Allowed couplings for the JHUGen EFT formalism:
+	ghz1 (default = 0,0)
+	ghz1_prime2 (default = 0,0)
+	ghz2 (default = 0,0)
+	ghz4 (default = 0,0)
+	ghzgs2 (default = 0,0)
+	ghzgs4 (default = 0,0)
+	ghgsgs2 (default = 0,0)
+	ghgsgs4 (default = 0,0)
+	ghg2 (default = 0,0)
+	ghg4 (default = 0,0)
+- Allowed couplings for the Higgs basis formalism without EFT constraints:
+	dCz (default = 0,0)
+	Czz (default = 0,0)
+	Czbx (default = 0,0)
+	tCzz (default = 0,0)
+	dCw (default = 0,0)
+	Cww (default = 0,0)
+	Cwbx (default = 0,0)
+	tCww (default = 0,0)
+	Cza (default = 0,0)
+	tCza (default = 0,0)
+	Cabx (default = 0,0)
+	Caa (default = 0,0)
+	tCaa (default = 0,0)
+	Cgg (default = 0,0)
+	tCgg (default = 0,0)
+- Allowed couplings for the Higgs basis EFT formalism:
+	dCz (default = 0,0)
+	Czbx (default = 0,0)
+	Czz (default = 0,0)
+	tCzz (default = 0,0)
+	Cza (default = 0,0)
+	tCza (default = 0,0)
+	Caa (default = 0,0)
+	tCaa (default = 0,0)
+	Cgg (default = 0,0)
+	tCgg (default = 0,0)
+- Allowed couplings for the Warsaw basis EFT formalism:
+	cHbx (default = 0,0)
+	cHD (default = 0,0)
+	cHG (default = 0,0)
+	cHW (default = 0,0)
+	cHB (default = 0,0)
+	cHWB (default = 0,0)
+	tcHG (default = 0,0)
+	tcHW (default = 0,0)
+	tcHB (default = 0,0)
+	tcHWB (default = 0,0)
+- Allowed parameters:
+	 Lambda_z1 (default = 10000)
+	 Lambda_w1 (default = 10000)
+	 Lambda_zgs1 (default = 10000)
+	 MZ (default = 91.1876)
+	 MW (default = 80.399)
+	 sin2ThetaW (default = 0.23119)
+	 alpha (default = 0.00729735)
+	 vev_lam (default = 0.0024622)
+	 delta_m (default = 0)
+	 delta_v (default = 0)
+
