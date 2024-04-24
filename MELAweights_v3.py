@@ -194,37 +194,6 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
             with multiprocessing.Pool() as P:
                 MELA_inputs = tuple(P.starmap(process_events, inputs))
             data_from_tree.clear()
-            
-            # for i in tqdm(range(N_events), position=0, leave=True, desc=f"Processing events for {name}"):
-            #     if isgen:
-            #         MELA_inputs["mothers"][i] = Mela.SimpleParticleCollection_t(
-            #             data_from_tree[branches["mother_id"]][i], 
-            #             [0]*len(data_from_tree[branches["mother_id"]][i]), 
-            #             [0]*len(data_from_tree[branches["mother_id"]][i]), 
-            #             data_from_tree[branches["mother_pz"]][i], 
-            #             data_from_tree[branches["mother_e"]][i], 
-            #             False
-            #         )
-            #     else:
-            #         MELA_inputs["mothers"][i] = Mela.SimpleParticleCollection_t()
-                
-            #     MELA_inputs["daughters"][i] = Mela.SimpleParticleCollection_t(
-            #         data_from_tree[branches["daughter_id"]][i], 
-            #         data_from_tree[branches["daughter_pt"]][i], 
-            #         data_from_tree[branches["daughter_eta"]][i], 
-            #         data_from_tree[branches["daughter_phi"]][i], 
-            #         data_from_tree[branches["daughter_mass"]][i] if isgen else 0, 
-            #         True
-            #     )
-                
-            #     MELA_inputs["associated"][i] = Mela.SimpleParticleCollection_t(
-            #         data_from_tree[branches["associated_id"]][i], 
-            #         data_from_tree[branches["associated_pt"]][i], 
-            #         data_from_tree[branches["associated_eta"]][i], 
-            #         data_from_tree[branches["associated_phi"]][i], 
-            #         data_from_tree[branches["associated_mass"]][i], 
-            #         True
-            #     )
         
         for i in tqdm(range(N_events), position=0, leave=True, desc=name):
             m.setProcess(process, matrixelement, production)

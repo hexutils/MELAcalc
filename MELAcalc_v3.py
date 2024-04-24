@@ -153,7 +153,7 @@ def json_to_dict(json_file):
 
         for n, prob_name in enumerate(data.keys()):
             current_dict = setup_inputs[n]
-            current_dict["name"] = prob_name.lower()
+            current_dict["name"] = prob_name
 
             for input_val in data[prob_name]:
                 new_input_val = input_val.lower()
