@@ -210,9 +210,9 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
                     if id == 25:
                         m.setMelaHiggsWidth(width, 0)
                     elif id == -25:
-                        m.setMelaHiggsWidth(mass, 1)
+                        m.setMelaHiggsWidth(width, 1)
                     else:
-                        m.resetWidth(mass, id)
+                        m.resetWidth(width, id)
 
             m.differentiate_HWW_HZZ = separatewwzz
             for coupl, coupl_val in couplings.items():
