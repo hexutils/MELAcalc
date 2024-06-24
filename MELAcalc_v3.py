@@ -16,7 +16,7 @@ def check_enum(entry, enum):
     possible_value = tuple(enum.__members__.keys())
     mapping = enum.__members__
     while (not found) and (i < len(possible_value)):
-        if entry == possible_value[i].lower():
+        if entry.lower() == possible_value[i].lower():
             found = True
             entry = possible_value[i]
         i += 1
