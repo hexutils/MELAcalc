@@ -1,0 +1,8 @@
+*.sm*
+Pdfdata
+*.log
+*.DAT
+*.dat
+*.root
+__pycache__/
+*.json
