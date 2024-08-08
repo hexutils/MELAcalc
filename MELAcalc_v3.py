@@ -31,7 +31,16 @@ def check_enum(entry, enum):
 
 
 def json_to_dict(json_file):
-    REQUIRED_ENTRIES = ('process', 'matrixelement', 'production', 'prod', 'dec', 'isgen', 'couplings', 'computeprop')
+    REQUIRED_ENTRIES = (
+        'process', 
+        'matrixelement', 
+        'production', 
+        'prod', 
+        'dec', 
+        'isgen', 
+        'couplings', 
+        'computeprop'
+    )
     REQUIRED_BRANCH_ENTRIES = {
         True:( #isgen=True
             "daughter_id",
@@ -133,14 +142,14 @@ def json_to_dict(json_file):
 
         setup_inputs = [
             {
-                'process':None,
-                'matrixelement':None,
-                'production':None,
-                'prod':None,
-                'dec':None,
-                'isgen':None,
-                'couplings':None,
-                'computeprop':None,
+                "process":None,
+                "matrixelement":None,
+                "production":None,
+                "prod":None,
+                "dec":None,
+                "isgen":None,
+                "couplings":None,
+                "computeprop":None,
                 "branches":None,
                 "dividep":None,
                 "propscheme":Mela.ResonancePropagatorScheme.FixedWidth,
@@ -148,7 +157,9 @@ def json_to_dict(json_file):
                 "cluster":None,
                 "decaymode":Mela.CandidateDecayMode.CandidateDecay_ZZ,
                 "separatewwzz":False,
-                "useconstant":False
+                "useconstant":False,
+                "match_mX":False,
+                "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
 
         for n, prob_name in enumerate(data.keys()):
@@ -209,7 +220,7 @@ def json_to_dict(json_file):
                                 LexiconInput += f"{ref_name}={val} "
                                 found_val = True
                             i += 1
-                        
+
                         i = 0
                         while i < len(VALID_LEXICON_PARAMETERS) and not found_val:
                             ref_name = VALID_LEXICON_PARAMETERS[i]
@@ -217,7 +228,7 @@ def json_to_dict(json_file):
                                 LexiconInput += f"{lex_name}={val}"
                                 found_val = True
                             i += 1
-                        
+
                         i = 0
                         while i < len(VALID_LEXICON_COUPLINGS) and not found_val:
                             ref_name = VALID_LEXICON_COUPLINGS[i]
@@ -229,7 +240,7 @@ def json_to_dict(json_file):
                                 LexiconInput += f"{lex_name}={val[0]},{val[1]} "
                                 found_val = True
                             i += 1
-                        
+
                         if not found_val:
                             errortext = f"{lex_name} is not a valid Lexicon parameter!"
                             errortext = help.print_msg_box(errortext, title="ERROR")
@@ -244,14 +255,14 @@ def json_to_dict(json_file):
                     except subprocess.CalledProcessError as e:
                         errortext = e.output.decode(sys.stdout.encoding)
                         raise OSError(errortext)
-                    
+
                     title = "JHUGen Lexicon Input"
                     infotext = "\n".join(LexiconInput.split())
                     infotext += "\n" + "-"*len(title) + "\n"
                     infotext += "\n".join(LexiconOutput)
                     infotext = help.print_msg_box(infotext, title="Lexicon Conversion")
                     print(infotext)
-                    
+
                     settings_dict_entry = {}
                     new_input_val = 'couplings'
                     for coupl in LexiconOutput:
@@ -261,13 +272,16 @@ def json_to_dict(json_file):
 
                 elif new_input_val == "particles":
                     for particle, mw_list in tuple(settings_dict_entry.items()):
-                        if len(settings_dict_entry[particle]) != 2:
+                        if len(settings_dict_entry[particle]) not in (2,3):
                             errortext = f"Length of input for particle with id {particle} is {len(settings_dict_entry[particle])}!"
                             errortext += "\nInput for particles should be as <id>:[<mass>, <width>]"
-                            errortext += "\nSet to '-1' if you want to keep the default for either"
-                            errortext += "\ni.e. 25:[100, -1]"
+                            errortext += "\nOr as <id>:[<mass>, <width>, <yukawa_mass>]"
+                            errortext += "\nSet to '-1' if you want to keep the previous for any"
+                            errortext += "\ni.e. 25:[100, -1] or 25:[-1, 0.01] or 3:[-1, -1, 10]"
                             errortext = help.print_msg_box(errortext, title="ERROR")
                             raise ValueError("\n" + errortext)
+                        if len(mw_list) == 2:
+                            mw_list += [-1] #add that the Yukawa mass is unchanged
                         settings_dict_entry[int(particle)] = tuple(mw_list)
                         del settings_dict_entry[particle]
                         del particle
@@ -286,6 +300,9 @@ def json_to_dict(json_file):
 
                 elif new_input_val == 'decaymode':
                     settings_dict_entry = check_enum(settings_dict_entry, Mela.CandidateDecayMode)
+
+                elif new_input_val == 'lepton_interference':
+                    settings_dict_entry = check_enum(settings_dict_entry, Mela.LeptonInterference)
 
                 current_dict[new_input_val] = settings_dict_entry
 

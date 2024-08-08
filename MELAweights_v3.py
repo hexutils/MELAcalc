@@ -8,21 +8,16 @@ import ROOT
 from tqdm import tqdm
 from MELAcalc_helper import print_msg_box
 
-DEFAULT_MASSES = { #set of default masses so we can reset them
-    8:100000,
-    25:125
-}
-
 data_from_tree = {}
 
 def process_events(branches, isgen, i): #if isgen just do the simpleparticlecollection
     if isgen:
         mother = Mela.SimpleParticleCollection_t(
-            data_from_tree[branches["mother_id"]][i], 
-            [0]*len(data_from_tree[branches["mother_id"]][i]), 
-            [0]*len(data_from_tree[branches["mother_id"]][i]), 
-            data_from_tree[branches["mother_pz"]][i], 
-            data_from_tree[branches["mother_e"]][i], 
+            data_from_tree[branches["mother_id"]][i][:2], 
+            [0]*2, 
+            [0]*2, 
+            data_from_tree[branches["mother_pz"]][i][:2], 
+            data_from_tree[branches["mother_e"]][i][:2], 
             False
         )
         daughter = Mela.SimpleParticleCollection_t(
@@ -34,7 +29,7 @@ def process_events(branches, isgen, i): #if isgen just do the simpleparticlecoll
             True
         )
     else:
-        mother = Mela.SimpleParticleCollection_t()
+        mother = None
         daughter = Mela.SimpleParticleCollection_t(
             data_from_tree[branches["daughter_id"]][i], 
             data_from_tree[branches["daughter_pt"]][i], 
@@ -72,6 +67,7 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
 
     data_from_tree = dict()
     MELA_inputs = tuple()
+    MELA_masses = tuple()
     probabilities = dict()
     
     name = None
@@ -92,6 +88,8 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
     couplings = None
     separatewwzz = None
     useconstant = None
+    match_mX = None
+    lepton_interference = None
     
     for p, prob_dict in enumerate(list_of_prob_dicts):
         name = prob_dict["name"]
@@ -104,10 +102,13 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
         couplings = prob_dict["couplings"]
         computeprop = prob_dict["computeprop"]
         useconstant = prob_dict["useconstant"]
+        match_mX = prob_dict["match_mX"]
+        lepton_interference = prob_dict["lepton_interference"]
         
         keep_branches = False
         if (branches is not None) and (set(branches) != set(prob_dict["branches"])):
             MELA_inputs = tuple()
+            MELA_masses = tuple()
             branches = prob_dict["branches"]
 
         elif (branches is not None) and (set(branches) == set(prob_dict["branches"])):
@@ -193,12 +194,17 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
             inputs = [(branches, isgen, i) for i in range(N_events)]
             with multiprocessing.Pool() as P:
                 MELA_inputs = tuple(P.starmap(process_events, inputs))
+                MELA_masses = [i[0].MTotal() for i in MELA_inputs] #gets the sum of the 4-vectors
             data_from_tree.clear()
         
         for i in tqdm(range(N_events), position=0, leave=True, desc=name):
             m.setProcess(process, matrixelement, production)
             m.setInputEvent(*MELA_inputs[i], isgen)
-            for id, (mass, width) in particles.items():
+            if match_mX:
+                m.setMelaHiggsMassWidth(MELA_masses[i], 0.00001, 0) #set the "pole mass" to be at the summed mass
+                m.setMelaHiggsMassWidth(MELA_masses[i], 0.00001, 1)
+            m.setMelaLeptonInterference(lepton_interference)
+            for id, (mass, width, yukawa_mass) in particles.items():
                 if mass >= 0:
                     if id == 25:
                         m.setMelaHiggsMass(mass, 0)
@@ -213,6 +219,8 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
                         m.setMelaHiggsWidth(width, 1)
                     else:
                         m.resetWidth(width, id)
+                if yukawa_mass >= 0:
+                    m.resetYukawaMass(yukawa_mass, id)
 
             m.differentiate_HWW_HZZ = separatewwzz
             for coupl, coupl_val in couplings.items():
@@ -372,14 +380,13 @@ def dump(infile, tTree, outfile, probabilities, newTree="", N_events=-1):
     newf = ROOT.TFile(outfile, "RECREATE")
     newt = t.CloneTree(0)
     
-    if (N_events < 0) or (N_events > t.num_entries):
+    if (N_events < 0) or (N_events > len(probabilities[list(probabilities.keys())[0]])):
         N_events = t.GetEntries()
     
     root_input = [None]*len(probabilities)
     for n, prob in enumerate(probabilities.keys()):
         root_input[n] = np.array([0.], dtype=float)
         newt.Branch(prob, root_input[n], prob+"/D")
-    
     for i in tqdm(range(N_events), desc="Dumping"):
         for n, prob in enumerate(probabilities):
             t.GetEntry(i)

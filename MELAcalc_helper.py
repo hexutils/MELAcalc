@@ -74,3 +74,10 @@ def recurse_through_folder(folder_path, extension="", verbose=False):
             folders_wanted += recurse_through_folder(path, extension, verbose)
         
     return folders_wanted
+
+
+default_masses_widths = {#set of default masses so we can reset them
+    8:100000, #WIP
+    25:125,
+    
+}
