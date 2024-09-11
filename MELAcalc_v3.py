@@ -5,6 +5,7 @@ from pathlib import Path
 import argparse
 import warnings
 import json
+import numpy as np
 import MELAweights_v3 as MW
 
 import MELAcalc_helper as help
@@ -136,7 +137,6 @@ def json_to_dict(json_file):
         "tcHB",
         "tcHWB",
     )
-    MADMELA_COUPLING_FLAG = False
 
     with open(json_file) as json_data:
         data = json.load(json_data)
@@ -162,6 +162,8 @@ def json_to_dict(json_file):
                 "match_mX":False,
                 "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
+        MADMELA_COUPLING_FLAG = np.full(len(data), False, dtype=bool)
+        
 
         for n, prob_name in enumerate(data.keys()):
             current_dict = setup_inputs[n]
@@ -176,6 +178,10 @@ def json_to_dict(json_file):
                     raise ValueError("\n" + errortext)
 
                 settings_dict_entry = data[prob_name][input_val]
+                if new_input_val == 'dividep':
+                    current_dict[new_input_val] = settings_dict_entry
+                    continue
+
                 if isinstance(settings_dict_entry, str):
                     settings_dict_entry = settings_dict_entry.lower()
 
@@ -188,11 +194,11 @@ def json_to_dict(json_file):
                         raise ValueError("\n" + errortext)
 
                     for coupling in settings_dict_entry:
-                        is_madmela_coupling = isinstance(settings_dict_entry[coupling], list)
-                        if not is_madmela_coupling:
-                            MADMELA_COUPLING_FLAG = True
+                        is_not_madmela_coupling = isinstance(settings_dict_entry[coupling], list)
+                        if not is_not_madmela_coupling:
+                            MADMELA_COUPLING_FLAG[n] = True
 
-                        elif not is_madmela_coupling and MADMELA_COUPLING_FLAG:
+                        elif is_not_madmela_coupling and MADMELA_COUPLING_FLAG[n]:
                             errortext = f"Invalid coupling: {coupling}!"
                             errortext += "\nCouplings for madMELA should be real valued constants!"
                             errortext += "\ni.e. mdl_chwb:1"
@@ -215,7 +221,20 @@ def json_to_dict(json_file):
                         errortext = help.print_msg_box(errortext, title="ERROR")
                         raise ValueError("\n" + errortext)
 
-                    LexiconInput = "./JHUGenLexicon/JHUGenLexicon output_basis=amp_jhu alpha=7.815e-3 "
+                    Lexicon_file_path = f"{os.path.dirname(os.path.abspath(__file__))}/JHUGenLexicon/JHUGenLexicon"
+                    if not os.path.exists(Lexicon_file_path):
+                        warningtext = "JHUGenLexicon not compiled!"
+                        warningtext += "\nCompiling..."
+                        warningtext = help.print_msg_box(warningtext, title="WARNING")
+                        warnings.warn("\n" + warningtext)
+
+                        pwd = os.getcwd()
+                        os.chdir(f"{os.path.dirname(os.path.abspath(__file__))}/JHUGenLexicon/")
+                        os.system("make")
+                        os.chdir(pwd)
+                    
+                    LexiconInput = f"{Lexicon_file_path} "
+                    LexiconInput += "output_basis=amp_jhu alpha=7.815e-3 "
                     set_input_basis = False
                     for lex_name, val in settings_dict_entry.items():
                         found_val = False
@@ -229,7 +248,7 @@ def json_to_dict(json_file):
                                     errortext = f"{lex_name} should be a boolean!"
                                     errortext = help.print_msg_box(errortext, title="ERROR")
                                     raise ValueError("\n" + errortext)
-                                LexiconInput += f"{ref_name}={val} "
+                                LexiconInput += f" {ref_name}={val} "
                                 found_val = True
                             i += 1
 
@@ -375,7 +394,7 @@ def json_to_dict(json_file):
         for i, config_dict in enumerate(setup_inputs):
             if config_dict['dividep'] is None:
                 continue
-            if MADMELA_COUPLING_FLAG and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
+            if MADMELA_COUPLING_FLAG[i] and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
                 errortext = "madMELA couplings require the madMELA matrix element!"
                 errortext = f"\nCurrent matrix element is set to {config_dict['matrixelement']}"
                 errortext = help.print_msg_box(errortext, title="ERROR")
@@ -385,12 +404,11 @@ def json_to_dict(json_file):
             found = False
             j = 0
             while (not found) and (j < len(setup_inputs)):
-                if i != j:
-                    possible_division = setup_inputs[j]
-                    if possible_division["name"] == config_dict["dividep"]:
-                        found = True
-                        if j > i: #make sure that the one being divided is after the denomenator
-                            setup_inputs[j], setup_inputs[i] = setup_inputs[i], setup_inputs[j]
+                possible_division = setup_inputs[j]
+                if possible_division["name"] == config_dict["dividep"]:
+                    found = True
+                    if j > i: #make sure that the one being divided is after the denomenator
+                        setup_inputs[j], setup_inputs[i] = setup_inputs[i], setup_inputs[j]
                 j += 1
 
             if not found:
