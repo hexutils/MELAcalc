@@ -242,6 +242,7 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
             if dividep is not None:
                 probabilities[name][i] /= probabilities[dividep][i]
 
+            m.resetInputEvent()
     return probabilities
 
 

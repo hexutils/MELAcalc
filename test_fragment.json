@@ -1,0 +1,114 @@
+{
+    "p_Gen_JJEW_SIG_ghv1_1_MCFM":{
+        "Process":"HSMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Couplings":{
+            "ghz1":[1,0],
+            "ghw1":[1,0]
+        },
+        "Prod":true,
+        "Dec":true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":false
+    },
+
+
+    "p_Gen_JJEW_SIG_ghz1_1_ghw1_0_MCFM":{
+        "Process":"HSMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Couplings":{
+            "ghz1":[1,0],
+            "ghw1":[0,0]
+        },
+        "Prod":true,
+        "Dec":true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":true
+    },
+
+    "p_Gen_JJEW_SIG_ghz1_1_ghw1_0p5_MCFM":{
+        "Process":"HSMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Couplings":{
+            "ghz1":[1,0],
+            "ghw1":[0.5,0]
+        },
+        "Prod":true,
+        "Dec":true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":true
+    },
+
+    "p_Gen_JJEW_BKG_MCFM":{
+        "Process":"bkgZZ",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Prod":true,
+        "Dec":true,
+        "Couplings":{},
+        "isGen":true,
+        "computeProp":false
+    },
+
+    "p_Gen_JJEW_BSI_ghv1_1_MCFM":{
+        "Process":"bkgZZ_SMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Couplings":{
+            "ghz1":[1,0],
+            "ghw1":[1,0]
+        },
+        "Prod":true,
+        "Dec":true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":true
+    },
+
+    "p_Gen_JJEW_BSI_ghz1_1_ghw1_0_MCFM":{
+        "Process":"bkgZZ_SMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Couplings":{
+            "ghz1":[1,0],
+            "ghw1":[0,0]
+        },
+        "Prod":true,
+        "Dec":true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":true
+    },
+
+    "Native": {
+        "Process": "HSMHiggs",
+        "Production": "JJEW",
+        "MatrixElement": "MCFM",
+        "Couplings": {
+            "ghz1": [1,0],
+            "ghw1":[1,0]
+        },
+        "Dec": true,
+        "Prod": true,
+        "isGen":true,
+        "computeProp":false,
+        "separateWWZZ":false
+    },
+
+    "p_Gen_JJEW_BKG_MCFM":{
+        "Process":"bkgZZ",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Prod":true,
+        "Dec":true,
+        "Couplings":{},
+        "isGen":true,
+        "computeProp":false
+    }
+}

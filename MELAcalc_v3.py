@@ -203,7 +203,7 @@ def json_to_dict(json_file):
                         errortext = help.print_msg_box(errortext, title="ERROR")
                         raise ValueError("\n" + errortext)
 
-                    LexiconInput = "./JHUGenLexicon/JHUGenLexicon output_basis=eft_jhu alpha=7.815e-3 "
+                    LexiconInput = "./JHUGenLexicon/JHUGenLexicon output_basis=amp_jhu alpha=7.815e-3 "
                     set_input_basis = False
                     for lex_name, val in settings_dict_entry.items():
                         found_val = False

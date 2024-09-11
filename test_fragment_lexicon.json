@@ -1,0 +1,16 @@
+{
+    "p_Gen_JJEW_BKG_MCFM":{
+        "Process":"HSMHiggs",
+        "Production":"JJEW",
+        "MatrixElement":"MCFM",
+        "Prod":true,
+        "Dec":true,
+        "lexicon":{
+            "cHbx":[4,0],
+            "tcHG":[1,0],
+            "input_basis":"idio"
+        },
+        "isGen":true,
+        "computeProp":false
+    }
+}
