@@ -136,6 +136,7 @@ def json_to_dict(json_file):
         "tcHB",
         "tcHWB",
     )
+    MADMELA_COUPLING_FLAG = False
 
     with open(json_file) as json_data:
         data = json.load(json_data)
@@ -187,7 +188,18 @@ def json_to_dict(json_file):
                         raise ValueError("\n" + errortext)
 
                     for coupling in settings_dict_entry:
-                        if len(settings_dict_entry[coupling]) != 2:
+                        is_madmela_coupling = isinstance(settings_dict_entry[coupling], list)
+                        if not is_madmela_coupling:
+                            MADMELA_COUPLING_FLAG = True
+
+                        elif not is_madmela_coupling and MADMELA_COUPLING_FLAG:
+                            errortext = f"Invalid coupling: {coupling}!"
+                            errortext += "\nCouplings for madMELA should be real valued constants!"
+                            errortext += "\ni.e. mdl_chwb:1"
+                            errortext = help.print_msg_box(errortext, title="ERROR")
+                            raise ValueError("\n" + errortext)
+
+                        elif len(settings_dict_entry[coupling]) != 2:
                             errortext = "Length of input for " + coupling + f" is {len(settings_dict_entry[coupling])}!"
                             errortext += "\nInput for couplings should be <name>:[<real>, <imaginary>]"
                             errortext += "\ni.e. ghz1:[1,0]"
@@ -363,6 +375,12 @@ def json_to_dict(json_file):
         for i, config_dict in enumerate(setup_inputs):
             if config_dict['dividep'] is None:
                 continue
+            if MADMELA_COUPLING_FLAG and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
+                errortext = "madMELA couplings require the madMELA matrix element!"
+                errortext = f"\nCurrent matrix element is set to {config_dict['matrixelement']}"
+                errortext = help.print_msg_box(errortext, title="ERROR")
+                raise ValueError("\n" + errortext)
+            
 
             found = False
             j = 0
