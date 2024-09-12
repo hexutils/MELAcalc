@@ -239,8 +239,11 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
             elif computeprop:
                 probabilities[name][i] = m.getXPropagator(propscheme)
 
-            if dividep is not None:
-                probabilities[name][i] /= probabilities[dividep][i]
+        if dividep is not None:
+            if dividep == name:
+                probabilities[f"{name}_divided"] = np.full(N_events, 1, dtype=float)
+            else:
+                probabilities[name] /= probabilities[dividep]
 
             m.resetInputEvent()
     return probabilities
