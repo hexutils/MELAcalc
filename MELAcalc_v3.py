@@ -33,13 +33,13 @@ def check_enum(entry, enum):
 
 def json_to_dict(json_file):
     REQUIRED_ENTRIES = (
-        'process', 
-        'matrixelement', 
-        'production', 
-        'prod', 
-        'dec', 
-        'isgen', 
-        'couplings', 
+        'process',
+        'matrixelement',
+        'production',
+        'prod',
+        'dec',
+        'isgen',
+        'couplings',
         'computeprop'
     )
     REQUIRED_BRANCH_ENTRIES = {
@@ -163,12 +163,13 @@ def json_to_dict(json_file):
                 "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
         MADMELA_COUPLING_FLAG = np.full(len(data), False, dtype=bool)
-        
+
 
         for n, prob_name in enumerate(data.keys()):
             current_dict = setup_inputs[n]
             current_dict["name"] = prob_name
 
+            real_valued_couplings = set()
             for input_val in data[prob_name]:
                 new_input_val = input_val.lower()
 
@@ -196,14 +197,15 @@ def json_to_dict(json_file):
                     for coupling in settings_dict_entry:
                         is_not_madmela_coupling = isinstance(settings_dict_entry[coupling], list)
                         if not is_not_madmela_coupling:
-                            MADMELA_COUPLING_FLAG[n] = True
+                            # MADMELA_COUPLING_FLAG[n] = True
+                            real_valued_couplings.add(coupling)
 
-                        elif is_not_madmela_coupling and MADMELA_COUPLING_FLAG[n]:
-                            errortext = f"Invalid coupling: {coupling}!"
-                            errortext += "\nCouplings for madMELA should be real valued constants!"
-                            errortext += "\ni.e. mdl_chwb:1"
-                            errortext = help.print_msg_box(errortext, title="ERROR")
-                            raise ValueError("\n" + errortext)
+                        # elif is_not_madmela_coupling and MADMELA_COUPLING_FLAG[n]:
+                        #     errortext = f"Invalid coupling: {coupling}!"
+                        #     errortext += "\nCouplings for madMELA should be real valued constants!"
+                        #     errortext += "\ni.e. mdl_chwb:1"
+                        #     errortext = help.print_msg_box(errortext, title="ERROR")
+                        #     raise ValueError("\n" + errortext)
 
                         elif len(settings_dict_entry[coupling]) != 2:
                             errortext = "Length of input for " + coupling + f" is {len(settings_dict_entry[coupling])}!"
@@ -232,7 +234,7 @@ def json_to_dict(json_file):
                         os.chdir(f"{os.path.dirname(os.path.abspath(__file__))}/JHUGenLexicon/")
                         os.system("make")
                         os.chdir(pwd)
-                    
+
                     LexiconInput = f"{Lexicon_file_path} "
                     LexiconInput += "output_basis=amp_jhu alpha=7.815e-3 "
                     set_input_basis = False
@@ -394,12 +396,16 @@ def json_to_dict(json_file):
         for i, config_dict in enumerate(setup_inputs):
             if config_dict['dividep'] is None:
                 continue
-            if MADMELA_COUPLING_FLAG[i] and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
-                errortext = "madMELA couplings require the madMELA matrix element!"
-                errortext = f"\nCurrent matrix element is set to {config_dict['matrixelement']}"
-                errortext = help.print_msg_box(errortext, title="ERROR")
-                raise ValueError("\n" + errortext)
-            
+
+            if len(real_valued_couplings) != 0 and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
+                errortext = "The following couplings are input as real-valued"
+                errortext += "\nwhile not setting 'matrixelement=MADGRAPH'"
+                for coupl in real_valued_couplings:
+                    errortext += f"\n{coupl}"
+                errortext += "\nPlease make sure you are inputting values correctly"
+                errortext = help.print_msg_box(errortext, title="WARNING")
+                warnings.warn("\n" + errortext)
+
 
             found = False
             j = 0

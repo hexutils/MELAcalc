@@ -239,6 +239,18 @@ def addprobabilities(list_of_prob_dicts, infile, tTree, verbosity, local_verbose
             elif computeprop:
                 probabilities[name][i] = m.getXPropagator(propscheme)
 
+            # if np.isnan(probabilities[name][i]):
+            #     print("NAN FOUND:")
+            #     d = MELA_inputs[i][0]
+            #     print("DAUGHTERS:")
+            #     for p in d:
+            #         print(p.id, p.PxPyPzE_vector)
+            #     mom = MELA_inputs[i][2]
+            #     print("MOTHERS:")
+            #     for p in mom:
+            #         print(p.id, p.PxPyPzE_vector)
+            #     print()
+
         if dividep is not None:
             if dividep == name:
                 probabilities[f"{name}_divided"] = np.full(N_events, 1, dtype=float)
