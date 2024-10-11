@@ -394,8 +394,6 @@ def json_to_dict(json_file):
                     raise ValueError("\n" + errortext)
 
         for i, config_dict in enumerate(setup_inputs):
-            if config_dict['dividep'] is None:
-                continue
 
             if len(real_valued_couplings) != 0 and config_dict['matrixelement'] != Mela.MatrixElement.MADGRAPH:
                 errortext = "The following couplings are input as real-valued"
@@ -406,6 +404,9 @@ def json_to_dict(json_file):
                 errortext = help.print_msg_box(errortext, title="WARNING")
                 warnings.warn("\n" + errortext)
 
+            if config_dict['dividep'] is None: 
+                #don't bother with the checks below if not relevant
+                continue
 
             found = False
             j = 0
