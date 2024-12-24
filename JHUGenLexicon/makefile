@@ -30,8 +30,7 @@ all: JHUGenLexicon
 
 
 JHUGenLexicon: $(OBJECTS) $(BINDIR)JHUGenLexicon.cc
-	$(CXX) $(CXXFLAGS) -o $(RUNDIR)JHUGenLexicon $(OBJECTS) $(BINDIR)JHUGenLexicon.cc $(GLIBS); \
-	$(CXX) $(CXXFLAGS) -shared -o $(RUNDIR)JHUGenLexicon.so $(OBJECTS) $(BINDIR)JHUGenLexicon.cc $(GLIBS)
+	$(CXX) $(CXXFLAGS) -o $(RUNDIR)JHUGenLexicon $(OBJECTS) $(BINDIR)JHUGenLexicon.cc $(GLIBS)
 
 clean:
 	rm -rf $(OUTLIB)
