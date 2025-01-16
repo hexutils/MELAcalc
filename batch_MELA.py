@@ -181,9 +181,10 @@ def generate_probability_executable(
                 f"error      = batch_logs/out_u$(i).err"
                 f"log        = batch_logs/out_u$(i).log",
                 " ",
-                f"+JobFlavour = \"nextweek\"",
+                f"+JobFlavour = \"testmatch\"",
+                f"request_memory = 20G"
                 " ",
-                
+                f"queue from seq 0 {len(infiles) - 1} |"
             ]
     else:
         with open("MELAcalc.slurm", "w+") as f:
