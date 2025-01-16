@@ -7,6 +7,8 @@ import warnings
 import json
 import numpy as np
 import MELAweights_v3 as MW
+import MELAweights_v3_batch as MWb
+import batch_MELA as BM
 
 import MELAcalc_helper as help
 import Mela
@@ -162,7 +164,6 @@ def json_to_dict(json_file):
                 "match_mX":False,
                 "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
-        MADMELA_COUPLING_FLAG = np.full(len(data), False, dtype=bool)
 
 
         for n, prob_name in enumerate(data.keys()):
@@ -433,6 +434,8 @@ def main(raw_args=None):
     input_possibilities.add_argument('-i', '--ifile', type=str, nargs='+', help="individual files you want weights applied to")
     input_possibilities.add_argument('-id', '--idirectory', type=str, help="An entire folder you want weights applied to")
 
+    parser.add_argument('-p', '--pickled', type=str, help="A pickle file of SimpleParticleCollections")
+
     parser.add_argument('-o', '--outdr', type=str, required=True, help="The output folder")
     parser.add_argument('-fp', '--prefix', type=str, default="", help="Optional prefix to the output file name")
     parser.add_argument('-nt', '--newTree', type=str, default="", help="Write down a new tree name if you want to dump the results to a new tree")
@@ -444,14 +447,20 @@ def main(raw_args=None):
     parser.add_argument('-v', '--verbose', choices=[0,1,2,3,4,5], type=int, default=0)
     parser.add_argument('-vl', '--verbose_local', choices=[0,1,2,3], type=int, default=0)
     parser.add_argument('-n', '--number', type=int, default=-1)
+    
+    parser.add_argument('-b', '--batch', action="store_true")
     args = parser.parse_args(raw_args)
 
     template_input = parser.format_help()
 
     inputfiles = args.ifile
     input_directory = args.idirectory
+    pickle_file = args.pickled
 
-    if input_directory: #if you put in a directory instead of a set of files - this will recurse over that everything in that file
+    batch = args.batch
+
+    #if you put in a directory instead of a set of files - this will recurse over that everything in that file
+    if input_directory is not None: 
         # looking for ROOT files
         inputfiles = help.recurse_through_folder(input_directory, ".root")
 
@@ -473,6 +482,7 @@ def main(raw_args=None):
         errortext = help.print_msg_box(errortext, title="ERROR")
         raise os.error("\n"+errortext)
 
+    outputdir = os.path.abspath(outputdir)
     if not outputdir.endswith("/"):
         outputdir = outputdir+"/"
 
@@ -510,8 +520,29 @@ def main(raw_args=None):
         print(help.print_msg_box(User_text, title="Reading user input"))
         del User_text
 
-        calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events)
-        MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
+        if pickle_file is not None:
+            MWb.addprobabilities(
+                branchlist, inputfile, pickle_file, outputfile, tbranch, verbosity, local_verbosity
+            )
+        elif batch:
+            current_branches = None
+            for branch in branchlist:
+                if (
+                    current_branches is not None 
+                    and
+                    branch["branches"] == current_branches
+                ):
+                    continue #if the branches are the same (which they usually are) do nothing
+                
+                current_branches = branch["branches"]
+                pickled = BM.pickle_events(current_branches, inputfile, outputdir, tbranch, branch["isgen"], N=n_events)
+
+            BM.generate_probability_executable(
+                json, inputfile, pickled, outputdir, tbranch, outputfile, verbosity, False, output_file_prefix
+            )
+        else:
+            calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events)
+            MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
 
 if __name__ == "__main__":
     main()

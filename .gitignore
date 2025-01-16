@@ -6,3 +6,9 @@ Pdfdata
 *.root
 __pycache__/
 *.json
+*.pkl
+*.out
+*.slurm
+*.sub
+*hadd_MELAcalc.sh
+*batch.sh

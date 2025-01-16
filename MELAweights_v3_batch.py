@@ -1,64 +1,22 @@
 import os
 import numpy as np
-import multiprocessing
 import uproot
 import shutil
 import Mela
-import ROOT
+import pickle
 from tqdm import tqdm
 from MELAcalc_helper import print_msg_box
 
-data_from_tree = {}
-
-def process_events(branches, isgen, i): #if isgen just do the simpleparticlecollection
-    if isgen:
-        mother = Mela.SimpleParticleCollection_t(
-            data_from_tree[branches["mother_id"]][i][:2], 
-            [0]*2, 
-            [0]*2, 
-            data_from_tree[branches["mother_pz"]][i][:2], 
-            data_from_tree[branches["mother_e"]][i][:2], 
-            False
-        )
-        daughter = Mela.SimpleParticleCollection_t(
-            data_from_tree[branches["daughter_id"]][i], 
-            data_from_tree[branches["daughter_pt"]][i], 
-            data_from_tree[branches["daughter_eta"]][i], 
-            data_from_tree[branches["daughter_phi"]][i], 
-            [0]*len(data_from_tree[branches["daughter_phi"]][i]), 
-            True
-        )
-    else:
-        mother = None
-        daughter = Mela.SimpleParticleCollection_t(
-            data_from_tree[branches["daughter_id"]][i], 
-            data_from_tree[branches["daughter_pt"]][i], 
-            data_from_tree[branches["daughter_eta"]][i], 
-            data_from_tree[branches["daughter_phi"]][i], 
-            [0]*len(data_from_tree[branches["daughter_phi"]][i]), 
-            True
-        )
-    
-    associated = Mela.SimpleParticleCollection_t(
-        data_from_tree[branches["associated_id"]][i], 
-        data_from_tree[branches["associated_pt"]][i], 
-        data_from_tree[branches["associated_eta"]][i], 
-        data_from_tree[branches["associated_phi"]][i], 
-        data_from_tree[branches["associated_mass"]][i], 
-        True
-    )
-    return (daughter, associated, mother)
-
 def addprobabilities(
-        list_of_prob_dicts, 
-        infile, 
-        tTree, 
-        verbosity, 
-        local_verbose=0, 
-        N_events=-1,
-        memory_limit=1_000_000
-    ):
-    global data_from_tree
+    list_of_prob_dicts, 
+    original_ROOT_file,
+    infile, #This is now a pickle file!
+    outfile,
+    tTree, 
+    verbosity, 
+    local_verbose=0, 
+    memory_limit=int(1e8) #this is 100 MB
+):
     if not os.path.exists(infile):
         errortext = print_msg_box(infile + " does not exist!", title="ERROR")
         raise FileNotFoundError("\n" + errortext)
@@ -66,19 +24,18 @@ def addprobabilities(
     m = Mela.Mela(13, 125, verbosity)
     #Always initialize MELA at m=125 GeV
     
-    f = uproot.open(infile)
+    f = uproot.open(original_ROOT_file)
     t = f[tTree]
-
-    # new_f = uproot.recreate(outfile)
-    # new_f.mktree(tTree, {i["name"]:"float64" for i in list_of_prob_dicts}, title="Probabilities")
+    new_f = uproot.recreate(outfile)
     
-    if (N_events < 0) or (N_events > t.num_entries):
-        N_events = t.num_entries
+    N_reset = memory_limit/np.dtype(np.float64).itemsize 
+    #the number of times to go before 1 call to "extend"
 
+    with open(infile, "rb") as collection:
+        MELA_inputs = pickle.load(collection)
+        N_events = len(MELA_inputs)
+        MELA_masses = [i[0].MTotal() for i in MELA_inputs] #gets the sum of the 4-vectors
 
-    data_from_tree = dict()
-    MELA_inputs = tuple()
-    MELA_masses = tuple()
     probabilities = dict()
     
     name = None
@@ -90,11 +47,8 @@ def addprobabilities(
     isgen = None
     couplings = None
     computeprop = None
-    branches = None
-    dividep = None
     propscheme = None
     particles = None
-    cluster = None
     decaymode = None
     couplings = None
     separatewwzz = None
@@ -102,55 +56,35 @@ def addprobabilities(
     match_mX = None
     lepton_interference = None
     
+    fields = []
+    match_mX_per_setup = []
     for p, prob_dict in enumerate(list_of_prob_dicts):
         name = prob_dict["name"]
         process = prob_dict["process"]
         matrixelement = prob_dict["matrixelement"]
         production = prob_dict["production"]
+        computeprop = prob_dict["computeprop"]
         prod = prob_dict["prod"]
         dec = prob_dict["dec"]
-        isgen = prob_dict["isgen"]
-        couplings = prob_dict["couplings"]
-        computeprop = prob_dict["computeprop"]
-        useconstant = prob_dict["useconstant"]
         match_mX = prob_dict["match_mX"]
-        lepton_interference = prob_dict["lepton_interference"]
+        couplings = prob_dict["couplings"]
+        match_mX_per_setup.append(match_mX)
+        while name in t.keys():
+            name = name + "_new"
+
+        list_of_prob_dicts[p]["name"] = name #change name to the new name
+        fields.append(name)
+        # probabilities[name] = []
+        if computeprop and (prod or dec):
+            # probabilities[name+"_prop"] = []
+            fields.append(name+"_prop")
         
-        keep_branches = False
-        if (branches is not None) and (set(branches) != set(prob_dict["branches"])):
-            MELA_inputs = tuple()
-            MELA_masses = tuple()
-            branches = prob_dict["branches"]
-
-        elif (branches is not None) and (set(branches) == set(prob_dict["branches"])):
-            keep_branches = True
-        else:
-            branches = prob_dict["branches"]
-
-        dividep = prob_dict["dividep"]
-        propscheme = prob_dict["propscheme"]
         particles = prob_dict["particles"]
+        decaymode = prob_dict["decaymode"]
         if particles is None:
             particles = dict()
-
-        cluster = prob_dict["cluster"]
-        decaymode = prob_dict["decaymode"]
-        separatewwzz = prob_dict["separatewwzz"]
-    
-        while name in t.keys():
-            for other_prob_dict in list_of_prob_dicts[p+1:]:
-                if other_prob_dict['dividep'] == name:
-                    other_prob_dict['dividep'] = name + "_new"
-            name = name + "_new"
-        del prob_dict
-
-        probabilities[name] = np.full(N_events, -1, dtype=np.float64)
-        if computeprop and (prod or dec):
-            probabilities[name+"_prop"] = np.full(N_events, -1, dtype=np.float64)
         
-        m.setCandidateDecayMode(decaymode)
-        
-        if local_verbose: #This is the verbose printout area
+        if local_verbose:
             gigabox = []
             
             titular = "PROBABILITY BRANCH"
@@ -167,11 +101,6 @@ def addprobabilities(
             gigabox.append(infotext)
             
             infotext = print_msg_box(f"Decay mode is {decaymode.name}", title="Decay Mode")
-            gigabox.append(infotext)
-            
-            infotext = "The following branches are used for the calculation:"
-            infotext += "\n" + "\n".join(branches.keys())
-            infotext = print_msg_box(infotext, title="Branches")
             gigabox.append(infotext)
             
             infotext = []
@@ -200,15 +129,40 @@ def addprobabilities(
             
             print('\n\n')
 
-        if not keep_branches:
-            data_from_tree = t.arrays(tuple(branches.values()), entry_stop=N_events + 1, library='np')
-            inputs = [(branches, isgen, i) for i in range(N_events)]
-            with multiprocessing.Pool() as P:
-                MELA_inputs = tuple(P.starmap(process_events, inputs))
-                MELA_masses = [i[0].MTotal() for i in MELA_inputs] #gets the sum of the 4-vectors
-            data_from_tree.clear()
-        
-        for i in tqdm(range(N_events), position=0, leave=True, desc=name):
+    if not any(match_mX_per_setup):
+        del MELA_masses
+
+    probabilities = {fi:[] for fi in fields}
+    new_f.mktree(tTree, {fi:"float64" for fi in fields}, title="Probabilities")
+    f.close()
+    del fields, name, gigabox, titular, infotext, f, t, match_mX_per_setup
+
+    for i in tqdm(range(N_events), position=0, leave=True, desc="Reweighting"):
+        for p, prob_dict in enumerate(list_of_prob_dicts):
+            name = prob_dict["name"]
+            process = prob_dict["process"]
+            matrixelement = prob_dict["matrixelement"]
+            production = prob_dict["production"]
+            prod = prob_dict["prod"]
+            dec = prob_dict["dec"]
+            isgen = prob_dict["isgen"]
+            couplings = prob_dict["couplings"]
+            computeprop = prob_dict["computeprop"]
+            useconstant = prob_dict["useconstant"]
+            match_mX = prob_dict["match_mX"]
+            lepton_interference = prob_dict["lepton_interference"]
+            
+
+            propscheme = prob_dict["propscheme"]
+            particles = prob_dict["particles"]
+            if particles is None:
+                particles = dict()
+
+            decaymode = prob_dict["decaymode"]
+            separatewwzz = prob_dict["separatewwzz"]
+            
+            
+            m.setCandidateDecayMode(decaymode)
             m.setProcess(process, matrixelement, production)
             m.setInputEvent(*MELA_inputs[i], isgen)
             if match_mX:
@@ -238,40 +192,32 @@ def addprobabilities(
                 setattr(m, coupl, coupl_val)
 
             if prod and dec:
-                probabilities[name][i] = m.computeProdDecP(useconstant)
+                probabilities[name].append(m.computeProdDecP(useconstant))
             elif prod:
-                probabilities[name][i] = m.computeProdP(useconstant)
+                probabilities[name].append(m.computeProdP(useconstant))
             elif dec:
-                probabilities[name][i] = m.computeP(useconstant)
-            else:
-                raise KeyError("Need to specify either production, decay, or computeprop!")
+                probabilities[name].append(m.computeP(useconstant))
+            
+            
             if computeprop and (prod or dec):
-                probabilities[name+"_prop"][i] = m.getXPropagator(propscheme)
+                probabilities[name+"_prop"].append(m.getXPropagator(propscheme))
             elif computeprop:
-                probabilities[name][i] = m.getXPropagator(propscheme)
+                probabilities[name].append(m.getXPropagator(propscheme))
+
+            if not (computeprop or prod or dec):
+                raise KeyError("Need to specify either production, decay, or computeprop!")
 
             m.resetInputEvent()
 
-            # if np.isnan(probabilities[name][i]):
-            #     print("NAN FOUND:")
-            #     d = MELA_inputs[i][0]
-            #     print("DAUGHTERS:")
-            #     for p in d:
-            #         print(p.id, p.PxPyPzE_vector)
-            #     mom = MELA_inputs[i][2]
-            #     print("MOTHERS:")
-            #     for p in mom:
-            #         print(p.id, p.PxPyPzE_vector)
-            #     print()
+        if ((i % N_reset) == 0) or (i == (N_events - 1)):
+            print("resetting events")
+            new_f[tTree].extend(probabilities)
+            for key in probabilities.keys():
+                probabilities[key] = []
 
-        if dividep is not None:
-            if dividep == name:
-                probabilities[f"{name}_divided"] = np.full(N_events, 1, dtype=float)
-            else:
-                probabilities[name] /= probabilities[dividep]
+    new_f.close()
 
-    return probabilities
-
+    return
 
 
 #         match_hmass_exactly = False
@@ -395,32 +341,32 @@ def addprobabilities(
 #     return probabilities
 
 
-def dump(infile, tTree, outfile, probabilities, newTree="", N_events=-1):
-    if newTree != "":
-        shutil.copy2(infile, outfile)
-        newf = uproot.update(outfile)
-        newf[newTree] = probabilities
-        newf.close()
-        return
+# def dump(infile, tTree, outfile, probabilities, newTree="", N_events=-1):
+#     if newTree != "":
+#         shutil.copy2(infile, outfile)
+#         newf = uproot.update(outfile)
+#         newf[newTree] = probabilities
+#         newf.close()
+#         return
 
-    f = ROOT.TFile(infile)
-    t = f.Get(tTree)
-    newf = ROOT.TFile(outfile, "RECREATE")
-    newt = t.CloneTree(0)
+#     f = ROOT.TFile(infile)
+#     t = f.Get(tTree)
+#     newf = ROOT.TFile(outfile, "RECREATE")
+#     newt = t.CloneTree(0)
     
-    if (N_events < 0) or (N_events > len(probabilities[list(probabilities.keys())[0]])):
-        N_events = t.GetEntries()
+#     if (N_events < 0) or (N_events > len(probabilities[list(probabilities.keys())[0]])):
+#         N_events = t.GetEntries()
     
-    root_input = [None]*len(probabilities)
-    for n, prob in enumerate(probabilities.keys()):
-        root_input[n] = np.array([0.], dtype=float)
-        newt.Branch(prob, root_input[n], prob+"/D")
-    for i in tqdm(range(N_events), desc="Dumping"):
-        for n, prob in enumerate(probabilities):
-            t.GetEntry(i)
-            root_input[n][0] = probabilities[prob][i]
-        newt.Fill()
-    newf.Write()
-    newf.Close()
-    f.Close()
-    return
+#     root_input = [None]*len(probabilities)
+#     for n, prob in enumerate(probabilities.keys()):
+#         root_input[n] = np.array([0.], dtype=float)
+#         newt.Branch(prob, root_input[n], prob+"/D")
+#     for i in tqdm(range(N_events), desc="Dumping"):
+#         for n, prob in enumerate(probabilities):
+#             t.GetEntry(i)
+#             root_input[n][0] = probabilities[prob][i]
+#         newt.Fill()
+#     newf.Write()
+#     newf.Close()
+#     f.Close()
+#     return
