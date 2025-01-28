@@ -181,7 +181,7 @@ def generate_probability_executable(
                 f"error      = batch_logs/out_u$(i).err"
                 f"log        = batch_logs/out_u$(i).log",
                 " ",
-                f"+JobFlavour = \"testmatch\"",
+                f"+JobFlavour = \"tomorrow\"",
                 f"request_memory = 20G"
                 " ",
                 f"queue from seq 0 {len(infiles) - 1} |"
@@ -196,7 +196,7 @@ def generate_probability_executable(
                 "#SBATCH --cpus-per-task=1",
                 "#SBATCH --output=batch_logs/MELA_%a.out",
                 "#SBATCH --mem=20G",
-                "#SBATCH --time=48:00:00",
+                "#SBATCH --time=10:00:00",
                 "#SBATCH",
                 "",
                 'echo "Start Job $SLURM_ARRAY_TASK_ID on $HOSTNAME"',
