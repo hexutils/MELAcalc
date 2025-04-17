@@ -5,10 +5,7 @@ from pathlib import Path
 import argparse
 import warnings
 import json
-import numpy as np
-import MELAweights_v3 as MW
-import MELAweights_v3_batch as MWb
-import batch_MELA as BM
+import MELAweights as MW
 
 import MELAcalc_helper as help
 import Mela
@@ -33,7 +30,7 @@ def check_enum(entry, enum):
     return mapping[entry]
 
 
-def json_to_dict(json_file):
+def json_to_dict(json_file, replace_default):
     REQUIRED_ENTRIES = (
         'process',
         'matrixelement',
@@ -162,7 +159,8 @@ def json_to_dict(json_file):
                 "separatewwzz":False,
                 "useconstant":False,
                 "match_mX":False,
-                "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf
+                "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf,
+                "replace":replace_default
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
 
 
@@ -317,7 +315,7 @@ def json_to_dict(json_file):
                         if len(mw_list) == 2:
                             mw_list += [-1] #add that the Yukawa mass is unchanged
                         settings_dict_entry[int(particle)] = tuple(mw_list)
-                        del settings_dict_entry[particle]
+                        del settings_dict_entry[particle] #delete the string version and keep the int
                         del particle
 
                 elif new_input_val == 'matrixelement':
@@ -337,6 +335,11 @@ def json_to_dict(json_file):
 
                 elif new_input_val == 'lepton_interference':
                     settings_dict_entry = check_enum(settings_dict_entry, Mela.LeptonInterference)
+                
+                elif new_input_val == "replace":
+                    if not isinstance(settings_dict_entry, bool):
+                        errortext = f"The 'replace' setting must be a boolean, not {type(settings_dict_entry)}!"
+                        raise TypeError("\n" + errortext)
 
                 current_dict[new_input_val] = settings_dict_entry
 
@@ -434,30 +437,29 @@ def main(raw_args=None):
     input_possibilities.add_argument('-i', '--ifile', type=str, nargs='+', help="individual files you want weights applied to")
     input_possibilities.add_argument('-id', '--idirectory', type=str, help="An entire folder you want weights applied to")
 
-    parser.add_argument('-p', '--pickled', type=str, help="A pickle file of SimpleParticleCollections")
-
     parser.add_argument('-o', '--outdr', type=str, required=True, help="The output folder")
     parser.add_argument('-fp', '--prefix', type=str, default="", help="Optional prefix to the output file name")
-    parser.add_argument('-nt', '--newTree', type=str, default="", help="Write down a new tree name if you want to dump the results to a new tree")
     parser.add_argument('-t', '--tBranch', type=str, default="eventTree", help="The name of the TBranch you are using")
+    parser.add_argument('-ss', '--stepSize', type=int, default=100, help="The step size of iteration, in MB")
 
     parser.add_argument('-j', '--jsonFile', type=str, help="The JSON file containing your branch names", required=True)
+    parser.add_argument('-e', '--energy', type=float, default=13, help="The center of mass energy MELA is initialized at")
 
     parser.add_argument('-ow', '--overwrite', action="store_true", help="Enable if you want to overwrite files in the output folder")
+    parser.add_argument('-r', '--replace', action="store_true", help="Enable this if you want ALL probabilities to have replace set to 'True', instead of needing to do it in the json file")
+
     parser.add_argument('-v', '--verbose', choices=[0,1,2,3,4,5], type=int, default=0)
     parser.add_argument('-vl', '--verbose_local', choices=[0,1,2,3], type=int, default=0)
     parser.add_argument('-n', '--number', type=int, default=-1)
     
-    parser.add_argument('-b', '--batch', action="store_true")
     args = parser.parse_args(raw_args)
 
     template_input = parser.format_help()
 
+    energy_scale = args.energy
+
     inputfiles = args.ifile
     input_directory = args.idirectory
-    pickle_file = args.pickled
-
-    batch = args.batch
 
     #if you put in a directory instead of a set of files - this will recurse over that everything in that file
     if input_directory is not None: 
@@ -466,12 +468,13 @@ def main(raw_args=None):
 
     output_file_prefix = args.prefix
     outputdir = args.outdr
-    newTree = args.newTree
+    step_size = args.stepSize
 
     json = args.jsonFile
 
     tbranch = args.tBranch.strip() #nasty extra spaces make us sad!
     overwrite = args.overwrite
+    replace_default = args.replace
     verbosity = Mela.VerbosityLevel(args.verbose) #call enum from number
     local_verbosity = args.verbose_local
     n_events = args.number
@@ -491,7 +494,7 @@ def main(raw_args=None):
         errortext = help.print_msg_box(errortext, title="ERROR")
         raise FileNotFoundError("\n" + errortext)
 
-    branchlist = json_to_dict(json)
+    branchlist = json_to_dict(json, replace_default)
 
     for inputfile in inputfiles:
         if not os.path.exists(inputfile):
@@ -520,29 +523,16 @@ def main(raw_args=None):
         print(help.print_msg_box(User_text, title="Reading user input"))
         del User_text
 
-        if pickle_file is not None:
-            MWb.addprobabilities(
-                branchlist, inputfile, pickle_file, outputfile, tbranch, verbosity, local_verbosity
-            )
-        elif batch:
-            current_branches = None
-            for branch in branchlist:
-                if (
-                    current_branches is not None 
-                    and
-                    branch["branches"] == current_branches
-                ):
-                    continue #if the branches are the same (which they usually are) do nothing
-                
-                current_branches = branch["branches"]
-                pickled = BM.pickle_events(current_branches, inputfile, outputdir, tbranch, branch["isgen"], N=n_events)
-
-            BM.generate_probability_executable(
-                json, inputfile, pickled, outputdir, tbranch, outputfile, verbosity, False, output_file_prefix
-            )
-        else:
-            calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events)
-            MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
+        calculated_probabilities = MW.addprobabilities(
+            branchlist, 
+            inputfile, outputfile, 
+            tbranch, verbosity, 
+            local_verbosity, n_events, 
+            energy_scale,
+            step_size
+        )
+        # calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events, energy_scale)
+        # MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
 
 if __name__ == "__main__":
     main()
