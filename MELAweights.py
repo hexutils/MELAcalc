@@ -6,10 +6,17 @@ import Mela
 from tqdm import tqdm
 from MELAcalc_helper import print_msg_box
 
-def process_events(data_from_tree, branches, isgen, i): #if isgen just do the simpleparticlecollection
+def process_events(data_from_tree, branches, isgen, i, replacement): #if isgen just do the simpleparticlecollection
     if isgen:
+        if replacement is None:
+            mothers = data_from_tree[branches["mother_id"]][i][:2]
+        else:
+            mothers = [
+                i if not replacement.get(i) else replacement.get(i) 
+                for i in data_from_tree[branches["mother_id"]][i][:2]
+            ]
         mother = Mela.SimpleParticleCollection_t(
-            data_from_tree[branches["mother_id"]][i][:2], 
+            mothers,
             [0]*2, 
             [0]*2, 
             data_from_tree[branches["mother_pz"]][i][:2], 
@@ -55,6 +62,7 @@ def addprobabilities(
         N_events=-1,
         energy=13, #TeV,
         step_size=100, #in MB
+        replacement=None
     ):
     if not os.path.exists(infile):
         errortext = print_msg_box(infile + " does not exist!", title="ERROR")
@@ -96,10 +104,21 @@ def addprobabilities(
             break
         
         N_BATCH = len(event[list(event.keys())[0]])
-
+            
         for name, branches in possible_branches.items():
             isgen = gen_status[name]
-            inputs = [(branches, isgen, i) for i in range(N_BATCH)]
+
+            #replacement only happens when there is something to replace and it is a GEN event
+            if (local_verbose) and (report.tree_entry_start == 0) and (replacement is not None) and isgen:    
+                titular = "LHE MOTHER REPLACEMENT"
+                infotext = []
+                for to_replace, replace_with in replacement.items():
+                    infotext.append(f"Replacing id {to_replace} with id {replace_with} in LHE Mothers")
+                print(
+                    print_msg_box("\n".join(infotext), title=titular)
+                )
+
+            inputs = [(branches, isgen, i, replacement) for i in range(N_BATCH)]
             MELA_inputs[name] = tuple(
                 process_events(event, *i) for i in 
                 tqdm(inputs, total=len(inputs), desc=f"pre-processing events for {name}")

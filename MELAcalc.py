@@ -441,6 +441,7 @@ def main(raw_args=None):
     parser.add_argument('-fp', '--prefix', type=str, default="", help="Optional prefix to the output file name")
     parser.add_argument('-t', '--tBranch', type=str, default="eventTree", help="The name of the TBranch you are using")
     parser.add_argument('-ss', '--stepSize', type=int, default=100, help="The step size of iteration, in MB")
+    parser.add_argument('--replaceWith', type=int, action="append", default=None, nargs=2, help="Replace the LHE Mothers of argument 1 with the id of argument 2")
 
     parser.add_argument('-j', '--jsonFile', type=str, help="The JSON file containing your branch names", required=True)
     parser.add_argument('-e', '--energy', type=float, default=13, help="The center of mass energy MELA is initialized at")
@@ -469,6 +470,10 @@ def main(raw_args=None):
     output_file_prefix = args.prefix
     outputdir = args.outdr
     step_size = args.stepSize
+    if args.replaceWith is None:
+        replace_with = None
+    else:
+        replace_with = {i[0] : i[1] for i in args.replaceWith}
 
     json = args.jsonFile
 
@@ -529,7 +534,8 @@ def main(raw_args=None):
             tbranch, verbosity, 
             local_verbosity, n_events, 
             energy_scale,
-            step_size
+            step_size,
+            replace_with
         )
         # calculated_probabilities = MW.addprobabilities(branchlist, inputfile, tbranch, verbosity, local_verbosity, n_events, energy_scale)
         # MW.dump(inputfile, tbranch, outputfile, calculated_probabilities, newTree, n_events)
