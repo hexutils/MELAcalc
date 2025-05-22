@@ -42,16 +42,16 @@ def process_events(data_from_tree, branches, isgen, i, replacement): #if isgen j
             True
         )
     
-    # associated = Mela.SimpleParticleCollection_t(
-    #     data_from_tree[branches["associated_id"]][i], 
-    #     data_from_tree[branches["associated_pt"]][i], 
-    #     data_from_tree[branches["associated_eta"]][i], 
-    #     data_from_tree[branches["associated_phi"]][i], 
-    #     data_from_tree[branches["associated_mass"]][i], 
-    #     True
-    # )
+    associated = Mela.SimpleParticleCollection_t(
+        data_from_tree[branches["associated_id"]][i], 
+        data_from_tree[branches["associated_pt"]][i], 
+        data_from_tree[branches["associated_eta"]][i], 
+        data_from_tree[branches["associated_phi"]][i], 
+        data_from_tree[branches["associated_mass"]][i], 
+        True
+    )
     
-    associated = None
+    # associated = None
     return (daughter, associated, mother)
 
 def addprobabilities(
