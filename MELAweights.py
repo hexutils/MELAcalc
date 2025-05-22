@@ -42,14 +42,16 @@ def process_events(data_from_tree, branches, isgen, i, replacement): #if isgen j
             True
         )
     
-    associated = Mela.SimpleParticleCollection_t(
-        data_from_tree[branches["associated_id"]][i], 
-        data_from_tree[branches["associated_pt"]][i], 
-        data_from_tree[branches["associated_eta"]][i], 
-        data_from_tree[branches["associated_phi"]][i], 
-        data_from_tree[branches["associated_mass"]][i], 
-        True
-    )
+    # associated = Mela.SimpleParticleCollection_t(
+    #     data_from_tree[branches["associated_id"]][i], 
+    #     data_from_tree[branches["associated_pt"]][i], 
+    #     data_from_tree[branches["associated_eta"]][i], 
+    #     data_from_tree[branches["associated_phi"]][i], 
+    #     data_from_tree[branches["associated_mass"]][i], 
+    #     True
+    # )
+    
+    associated = None
     return (daughter, associated, mother)
 
 def addprobabilities(
@@ -132,6 +134,7 @@ def addprobabilities(
             production = prob_dict["production"]
             prod = prob_dict["prod"]
             dec = prob_dict["dec"]
+            isPM4L = prob_dict["ispm4l"]
             isgen = prob_dict["isgen"]
             couplings = prob_dict["couplings"]
             computeprop = prob_dict["computeprop"]
@@ -160,6 +163,11 @@ def addprobabilities(
             event[name] = np.full(N_BATCH, -1, dtype=np.float64)
             if computeprop and (prod or dec):
                 event[name+"_prop"] = np.full(N_BATCH, -1, dtype=np.float64)
+            if isPM4L:
+                event[name+"_ScaleUp"] = np.full(N_BATCH, -1, dtype=np.float64)
+                event[name+"_ScaleDown"] = np.full(N_BATCH, -1, dtype=np.float64)
+                event[name+"_ResUp"] = np.full(N_BATCH, -1, dtype=np.float64)
+                event[name+"_ResDown"] = np.full(N_BATCH, -1, dtype=np.float64)
         
             m.setCandidateDecayMode(decaymode)
         
@@ -202,6 +210,8 @@ def addprobabilities(
                     infotext += "ComputeProdP()"
                 elif dec:
                     infotext += "ComputeP()"
+                elif isPM4L: 
+                    infotext += "ComputePM4l()"
                 else:
                     raise ValueError("Need to select a probability calculation!")
                 
@@ -252,6 +262,12 @@ def addprobabilities(
                     event[name][i] = m.computeProdP(useconstant)
                 elif dec:
                     event[name][i] = m.computeP(useconstant)
+                elif isPM4L: 
+                    event[name][i] = m.computePM4l(Mela.SuperMelaSyst.SMSyst_None)
+                    event[name+"_ScaleUp"][i] = m.computePM4l(Mela.SuperMelaSyst.SMSyst_ScaleUp)
+                    event[name+"_ScaleDown"][i] = m.computePM4l(Mela.SuperMelaSyst.SMSyst_ScaleDown)
+                    event[name+"_ResUp"][i] = m.computePM4l(Mela.SuperMelaSyst.SMSyst_ResUp)
+                    event[name+"_ResDown"][i] = m.computePM4l(Mela.SuperMelaSyst.SMSyst_ResDown)
                 else:
                     raise KeyError("Need to specify either production, decay, or computeprop!")
                 if computeprop and (prod or dec):

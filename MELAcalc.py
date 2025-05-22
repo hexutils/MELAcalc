@@ -160,7 +160,8 @@ def json_to_dict(json_file, replace_default):
                 "useconstant":False,
                 "match_mX":False,
                 "lepton_interference":Mela.LeptonInterference.DefaultLeptonInterf,
-                "replace":replace_default
+                "replace":replace_default,
+                "ispm4l": False,
             } for _ in range(len(data))] #MELA logistics, couplings, options, particles
 
 
@@ -379,6 +380,7 @@ def json_to_dict(json_file, replace_default):
                         "daughter_pt" : "LepPt",
                         "daughter_eta" : "LepEta",
                         "daughter_phi" : "LepPhi",
+                        "associated_id" : "JetId", # Maybe? 
                         "associated_pt" : "JetPt",
                         "associated_eta" : "JetEta",
                         "associated_phi" :  "JetPhi",
